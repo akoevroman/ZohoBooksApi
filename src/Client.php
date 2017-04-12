@@ -14,7 +14,7 @@ use Webleit\ZohoBooksApi\Exceptions\ErrorResponseException;
  */
 class Client
 {
-    const ENDPOINT = 'https://books.zoho.com/api/v3/';
+    const ENDPOINT = 'https://invoice.zoho.com/api/v3/';
 
     /**
      * @var string

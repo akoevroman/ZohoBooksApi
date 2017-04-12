@@ -5,9 +5,7 @@ It provides both an interface to ease the interaction with the APIs without both
 
 ## Installation 
 
-```
-composer require webleit/zohobooksapi
-```
+TODO
 
 ## Usage
 

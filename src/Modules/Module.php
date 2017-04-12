@@ -22,7 +22,7 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
      * Base Url of the Zoho Books Api
      * @var string
      */
-    const ENDPOINT = 'https://books.zoho.com/api/v3/';
+    const ENDPOINT = 'https://invoice.zoho.com/api/v3/';
 
     /**
      * @var Client
