@@ -254,7 +254,8 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
     public function getModelClassName()
     {
         $className = (new \ReflectionClass($this))->getShortName();
-        $class = '\\Webleit\\ZohoBooksApi\\Models\\' . Inflector::singularize(Inflector::camelize($className));
+        $class = '\\Webleit\\ZohoBooksApi\\Models\\' . Inflector::singularize(Inflector::ucwords($className));
+        //error was with Inflector::camelize($className)
 
         return $class;
     }
