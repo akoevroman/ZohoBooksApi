@@ -124,4 +124,15 @@ class ZohoBooks
     {
         return $this->createModule($name);
     }
+
+    /**
+     * @param $method
+     * @param $parameters
+     *
+     * @return Modules\Module
+     */
+    public function __call($method, $parameters)
+    {
+        return $this->__get($method);
+    }
 }
