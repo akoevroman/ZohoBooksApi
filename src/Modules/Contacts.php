@@ -3,6 +3,7 @@
 namespace Webleit\ZohoBooksApi\Modules;
 
 use Webleit\ZohoBooksApi\Client;
+use Webleit\ZohoBooksApi\Modules\Contacts\Addresses;
 use Webleit\ZohoBooksApi\Modules\Contacts\ContactPersons;
 use Webleit\ZohoBooksApi\Modules\Mixins\Commentable;
 use Webleit\ZohoBooksApi\Models\Contact;
@@ -23,6 +24,11 @@ class Contacts extends Module
      */
     public $contactpersons;
 
+    /**
+     * @var Addresses
+     */
+    public $addresses;
+
     public function __construct(Client $client)
     {
         parent::__construct($client);
@@ -38,6 +44,16 @@ class Contacts extends Module
     {
         $className = $this->getModelClassName() . '\\Person';
         return $this->getPropertyList('contactpersons', $id, $className, 'contact_persons', $this->contactpersons);
+    }
+
+    /**
+     * @param $id
+     * @return \Illuminate\Support\Collection
+     */
+    public function getAddresses($id)
+    {
+        $className = $this->getModelClassName() . '\\Address';
+        return $this->getPropertyList('address', $id, $className, 'addresses', $this->addresses);
     }
 
     /**
@@ -61,7 +77,7 @@ class Contacts extends Module
             $params['end_date'] = $to->format('Y-m-d');
         }
 
-        $this->client->post($this->getUrl() . '/' . $id . '/statements/email', $data, $params);
+        $this->client->post($this->getUrl() . '/' . $id . '/statements/email', null, $data, $params);
         // If we arrive here without exceptions, everything went well
         return true;
     }

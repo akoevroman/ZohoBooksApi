@@ -22,7 +22,7 @@ class VendorCredits extends Module
      */
     public function applyToBill($id, $data)
     {
-        $data = $this->client->post($this->getUrl() . '/' . $id . '/bills', $data);
+        $data = $this->client->post($this->getUrl() . '/' . $id . '/bills', null, $data);
 
         return $data['bills'];
     }
@@ -69,5 +69,18 @@ class VendorCredits extends Module
     public function markAsVoid($id)
     {
         return $this->markAs($id, 'void');
+    }
+
+    /**
+     * Override returned key
+     *
+     * This overrides the key that is returned from zoho, as they
+     * send back 'vendor_credits' instead of 'vendorcredits'
+     *
+     * @return string
+     */
+    public function getResourceKey()
+    {
+        return 'vendor_credits';
     }
 }

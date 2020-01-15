@@ -3,14 +3,13 @@
 namespace Webleit\ZohoBooksApi;
 
 use Webleit\ZohoBooksApi\Mixins\ProvidesModules;
-use Webleit\ZohoBooksApi\Modules\Contacts;
 use Webleit\ZohoBooksApi\Modules;
 
 /**
  * Class ZohoBooks
  * @package Webleit\ZohoBooksApi
  *
- * @property-read Contacts $contacts
+ * @property-read Modules\Contacts $contacts
  * @property-read Modules\Module $estimates
  * @property-read Modules\SalesOrders $salesorders
  * @property-read Modules\Invoices $invoices
@@ -32,9 +31,10 @@ use Webleit\ZohoBooksApi\Modules;
  * @property-read Modules\Projects $projects
  * @property-read Modules\Settings $settings
  * @property-read Modules\Organizations $organizations
- * @property-read Modules\Items $items;
+ * @property-read Modules\Items $items
+ * @property-read Modules\Users $users
  */
-class ZohoBooks
+class ZohoBooks implements \Webleit\ZohoBooksApi\Contracts\ProvidesModules
 {
     use ProvidesModules;
 
@@ -72,47 +72,41 @@ class ZohoBooks
      * @var array
      */
     protected $availableModules = [
-        'contacts',
-        'estimates',
-        'salesorders',
-        'invoices',
-        'recurringinvoices',
-        'creditnotes',
-        'customerpayments',
-        'expenses',
-        'recurringexpenses',
-        'purchaseorders',
-        'bills',
-        'vendorcredits',
-        'vendorpayments',
-        'bankaccounts',
-        'banktransactions',
-        'bankrules',
-        'chartofaccounts',
-        'journals',
-        'basecurrencyadjustment',
-        'projects',
-        'settings',
-        'organizations',
-        'items'
+        'contacts' => Modules\Contacts::class,
+        'estimates' => Modules\Estimates::class,
+        'salesorders' => Modules\SalesOrders::class,
+        'invoices' => Modules\Invoices::class,
+        'recurringinvoices' => Modules\RecurringInvoices::class,
+        'creditnotes' => Modules\CreditNotes::class,
+        'customerpayments' => Modules\CustomerPayments::class,
+        'expenses' => Modules\Expenses::class,
+        'recurringexpenses' => Modules\RecurringExpenses::class,
+        'purchaseorders' => Modules\PurchaseOrders::class,
+        'bills' => Modules\Bills::class,
+        'vendorcredits' => Modules\VendorCredits::class,
+        'vendorpayments' => Modules\VendorPayments::class,
+        'bankaccounts' => Modules\BankAccounts::class,
+        'banktransactions' => Modules\BankTransactions::class,
+        'bankrules' => Modules\BankRules::class,
+        'chartofaccounts' => Modules\ChartOfAccounts::class,
+        'journals' => Modules\Journals::class,
+        'basecurrencyadjustment' => Modules\BaseCurrencyAdjustment::class,
+        'projects' => Modules\Projects::class,
+        'settings' => Modules\Settings::class,
+        'organizations' => Modules\Organizations::class,
+        'items' => Modules\Items::class,
+        'users' => Modules\Users::class,
     ];
 
     /**
      * ZohoBooksApi constructor.
      * @param string $authToken         Zoho Books Api Token (See https://www.zoho.com/books/api/v3/)
      * @param string $organizationId    The organization id you want to deal with (See https://www.zoho.com/books/api/v3/)
+     * @param string $region            The API Region. Can be US or EU
      */
-    public function __construct($authToken, $organizationId = null)
+    public function __construct($clientId, $clientSecret, $refreshToken = '')
     {
-        $this->client = new Client($authToken);
-
-        // Set the default organization id to the default org in zoho books
-        if (!$organizationId) {
-            $organizationId = $this->organizations->getDefaultOrganizationId();
-        }
-
-        $this->organizationId = $organizationId;
-        $this->client->setOrganizationId($organizationId);
+        $this->client = new Client($clientId, $clientSecret, $refreshToken);
     }
 
     /**
@@ -134,5 +128,20 @@ class ZohoBooks
     public function __call($method, $parameters)
     {
         return $this->__get($method);
+    }
+
+    /**
+     * Get Client Class constructor.
+     * @return \Client|object class
+     */
+    public function getClient()
+    {
+        return $this->client;
+    }
+
+    public function setOrganizationId($id)
+    {
+        $this->client->setOrganizationId($id);
+        return $this;
     }
 }

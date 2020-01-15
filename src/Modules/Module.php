@@ -19,12 +19,6 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
     const RESPONSE_OPTION_PAGINATION_ONLY = 2;
 
     /**
-     * Base Url of the Zoho Books Api
-     * @var string
-     */
-    const ENDPOINT = 'https://invoice.zoho.com/api/v3/';
-
-    /**
      * @var Client
      */
     protected $client;
@@ -47,7 +41,7 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
         $list = $this->client->getList($this->getUrl(), null, $params);
 
         $collection = new Collection($list[$this->getResourceKey()]);
-        $collection = $collection->mapWithKeys(function($item) {
+        $collection = $collection->mapWithKeys(function ($item) {
             $item = $this->make($item);
             return [$item->getId() => $item];
         });
@@ -60,9 +54,14 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
      * @param string $id
      * @return Model
      */
-    public function get($id)
+    public function get($id, array $params = [])
     {
-        $item = $this->client->get($this->getUrl(), $id);
+        $item = $this->client->get($this->getUrl(), $id, null, $params);
+
+        if (!is_array($item)) {
+            return $item;
+        }
+
         $data = $item[Inflector::singularize($this->getResourceKey())];
 
         return $this->make($data);
@@ -150,13 +149,20 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
      */
     public function getUrl()
     {
-        return self::ENDPOINT . $this->getUrlPath();
+        return $this->client->getEndPoint() . $this->getUrlPath();
     }
 
     /**
+     * This is used to determine the key of the returned data
+     *
+     * Note that some modules (eg, Settings\TaxExemptions) override
+     * this value, because zoho does not return the data with the
+     * expected key. If you are looking at this code, you may also
+     * need to override the api key name, too.
+     *
      * @return string
      */
-    protected function getResourceKey()
+    public function getResourceKey()
     {
         return strtolower($this->getName());
     }
@@ -165,7 +171,7 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
      * @param  array $data
      * @return Model
      */
-    protected function make($data = [])
+    public function make($data = [])
     {
         $class = $this->getModelClassName();
 
@@ -181,6 +187,13 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
     }
 
     /**
+     * Mark something with a status
+     *
+     * Note that as of 2019-11-27, Zoho Books API errors if you don't
+     * provide a JSONString param. It can't be empty.
+     *
+     * See https://github.com/Weble/ZohoBooksApi/issues/33
+     *
      * @param $id
      * @param $status
      * @param string $key
@@ -188,7 +201,11 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
      */
     public function markAs($id, $status, $key = 'status')
     {
-        $this->client->post($this->getUrl() . '/' . $id . '/' . $key . '/' . $status);
+        $this->client->post(
+            $this->getUrl() . '/' . $id . '/' . $key . '/' . $status,
+            null,
+            ["random" => "data"]
+        );
         // If we arrive here without exceptions, everything went well
         return true;
     }
@@ -202,7 +219,7 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
      */
     public function doAction($id, $action, $data = [], $params = [])
     {
-        $this->client->post($this->getUrl() . '/' . $id . '/' . $action);
+        $this->client->post($this->getUrl() . '/' . $id . '/' . $action, null, $data, $params);
 
         // If we arrive here without exceptions, everything went well
         return true;
@@ -254,8 +271,7 @@ abstract class Module implements \Webleit\ZohoBooksApi\Contracts\Module
     public function getModelClassName()
     {
         $className = (new \ReflectionClass($this))->getShortName();
-        $class = '\\Webleit\\ZohoBooksApi\\Models\\' . Inflector::singularize(Inflector::ucwords($className));
-        //error was with Inflector::camelize($className)
+        $class = '\\Webleit\\ZohoBooksApi\\Models\\' . ucfirst(Inflector::singularize($className));
 
         return $class;
     }

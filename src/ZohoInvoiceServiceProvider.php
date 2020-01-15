@@ -16,8 +16,13 @@ class ZohoInvoiceServiceProvider extends ServiceProvider
 
         $this->app->singleton('webleit.zohobooksapi', function($app)
         {
-            $client = new \Webleit\ZohoBooksApi\ZohoBooks($app['config']->get('services.zohoinvoice.key'),
-                $app['config']->get('services.zohoinvoice.organizationid'));
+            $client = new \Webleit\ZohoBooksApi\ZohoBooks(
+                $app['config']->get('services.zohoinvoice.clientId'),
+                $app['config']->get('services.zohoinvoice.clientSecret'),
+                $app['config']->get('services.zohoinvoice.refreshToken')
+            );
+
+            $client->setOrganizationId($app['config']->get('services.zohoinvoice.organizationId'));
 
             return $client;
         });

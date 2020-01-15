@@ -4,6 +4,7 @@ namespace Webleit\ZohoBooksApi;
 
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
+use Weble\ZohoClient\OAuthClient;
 use Webleit\ZohoBooksApi\Exceptions\AuthException;
 use Webleit\ZohoBooksApi\Exceptions\ErrorResponseException;
 
@@ -14,7 +15,11 @@ use Webleit\ZohoBooksApi\Exceptions\ErrorResponseException;
  */
 class Client
 {
-    const ENDPOINT = 'https://invoice.zoho.com/api/v3/';
+
+    const ENDPOINT_CN = 'https://invoice.zoho.com.cn/api/v3/';
+    const ENDPOINT_EU = 'https://invoice.zoho.eu/api/v3/';
+    const ENDPOINT_IN = 'https://invoice.zoho.in/api/v3/';
+    const ENDPOINT_US = 'https://invoice.zoho.com/api/v3/';
 
     /**
      * @var string
@@ -22,9 +27,9 @@ class Client
     protected $httpClient;
 
     /**
-     * @var string
+     * @var OAuthClient
      */
-    protected $authToken;
+    protected $oAuthClient;
 
     /**
      * default organization id
@@ -33,29 +38,118 @@ class Client
     protected $organizationId;
 
     /**
-     * Client constructor.
-     *
-     * @param string|null $authToken
-     * @param string|null $email
-     * @param string|null $password
+     * @var string
      */
-    public function __construct($authToken = null, $email = null, $password = null)
+    protected $region = OAuthClient::DC_US;
+
+    /**
+     * As of Zoho BUILD_VERSION "Dec_10_2019_23492", they are returning headers
+     * of 'X-Rate-Limit-Limit', 'X-Rate-Limit-Reset', and 'X-Rate-Limit-Remaining'
+     * on API calls. These vars are updated with the contents of those headers, if
+     * they exist.
+     */
+
+    /**
+     * The rate limit of this org, as returned by the X-Rate-Limit-Limit header
+     * @var int|null
+     */
+    protected $orgRateLimit;
+
+    /**
+     * The number of seconds remaining until the rate limit resets, as returned
+     * by the 'X-Rate-Limit-Reset' header
+     * @var int|null
+     */
+    protected $rateLimitReset;
+
+    /**
+     * The number of API calls remaining before the rate limit is reset, as returned
+     * by the 'X-Rate-Limit-Remaining' header
+     * @var int|null
+     */
+    protected $rateLimitRemaining;
+
+    /**
+     * Client constructor.
+     * @param $clientId
+     * @param $clientSecret
+     * @param $refreshToken
+     */
+    public function __construct($clientId, $clientSecret, $refreshToken = null)
     {
-        $this->httpClient = new \GuzzleHttp\Client(['base_uri' => self::ENDPOINT, 'http_errors' => false]);
+        $this->createClient();
 
-        if (!$authToken) {
-            $authToken = $this->auth($email, $password);
-        }
-
-        $this->authToken = $authToken;
+        $this->oAuthClient = new OAuthClient($clientId, $clientSecret, $refreshToken);
+        $this->oAuthClient->setRefreshToken($refreshToken);
     }
 
     /**
-     * @param string $organizationId
+     * @param string $region
+     * @return $this
+     */
+    public function setRegion($region = OAuthClient::DC_US)
+    {
+        $this->region = $region;
+        $this->createClient();
+
+        return $this;
+    }
+
+    /**
+     * @return \GuzzleHttp\Client|string
+     */
+    protected function createClient()
+    {
+        $this->httpClient = new \GuzzleHttp\Client(['base_uri' => $this->getEndPoint(), 'http_errors' => false]);
+        return $this->httpClient;
+    }
+
+    /**
+     * @return string
+     */
+    public function getEndPoint()
+    {
+        switch ($this->region) {
+            case OAuthClient::DC_CN:
+                return self::ENDPOINT_CN;
+                break;
+            case OAuthClient::DC_IN:
+                return self::ENDPOINT_IN;
+                break;
+            case OAuthClient::DC_EU:
+                return self::ENDPOINT_EU;
+                break;
+            case OAuthClient::DC_US:
+            default:
+                return self::ENDPOINT_US;
+                break;
+        }
+    }
+
+    /**
+     * @return string
+     */
+    public function getOrganizationId()
+    {
+        return $this->organizationId;
+    }
+
+    /**
+     * @return string
+     */
+    public function getRegion()
+    {
+        return $this->region;
+    }
+
+    /**
+     * @param $organizationId
+     * @return $this
      */
     public function setOrganizationId($organizationId)
     {
         $this->organizationId = $organizationId;
+        return $this;
     }
 
     /**
@@ -68,7 +162,7 @@ class Client
     public function getList($url, $organizationId = null, array $filters = [])
     {
         return $this->processResult(
-            $this->httpClient->get($url, ['query' => array_merge($this->getParams($organizationId), $filters)])
+            $this->httpClient->get($url, $this->getOptions(['query' => array_merge($this->getParams($organizationId), $filters)]))
         );
     }
 
@@ -87,7 +181,7 @@ class Client
         }
 
         return $this->processResult(
-            $this->httpClient->get($url, ['query' => $this->getParams($organizationId) + $params])
+            $this->httpClient->get($url, $this->getOptions(['query' => $this->getParams($organizationId) + $params]))
         );
     }
 
@@ -103,7 +197,7 @@ class Client
     public function rawGet($url, $organizationId = null, array $params = [])
     {
         try {
-            $response = $this->httpClient->get($url, ['query' => $this->getParams($organizationId) + $params]);
+            $response = $this->httpClient->get($url, $this->getOptions(['query' => $this->getParams($organizationId) + $params]));
             return $response->getBody();
         } catch (\InvalidArgumentException $e) {
             throw new ErrorResponseException('Response from Zoho is not success. Message: ' . $e);
@@ -122,9 +216,10 @@ class Client
     {
         return $this->processResult($this->httpClient->post(
             $url,
-            [
-                'query' => $this->getParams($organizationId, $data) + $params,
-            ]
+            $this->getOptions([
+                'query' => $this->getParams($organizationId) + $params,
+                'form_params' => ['JSONString' => json_encode($data)]
+            ])
         ));
     }
 
@@ -145,9 +240,10 @@ class Client
 
         return $this->processResult($this->httpClient->put(
             $url,
-            [
-                'query' => $this->getParams($organizationId, $data) + $params,
-            ]
+            $this->getOptions([
+                'query' => $this->getParams($organizationId) + $params,
+                'form_params' => ['JSONString' => json_encode($data)]
+            ])
         ));
     }
 
@@ -165,7 +261,7 @@ class Client
         }
 
         return $this->processResult(
-            $this->httpClient->delete($url, ['query' => $this->getParams($organizationId)])
+            $this->httpClient->delete($url, $this->getOptions(['query' => $this->getParams($organizationId)]))
         );
     }
 
@@ -181,10 +277,11 @@ class Client
             $organizationId = $this->organizationId;
         }
 
-        $params = [
-            'authtoken' => $this->authToken,
-            'organization_id' => $organizationId,
-        ];
+        $params = [];
+
+        if ($organizationId) {
+            $params['organization_id'] = $organizationId;
+        }
 
         if ($data) {
             $params['JSONString'] = json_encode($data);
@@ -194,17 +291,62 @@ class Client
     }
 
     /**
+     * @param array $params
+     * @return array
+     */
+    protected function getOptions($params = [])
+    {
+        return array_merge([
+            'headers' => [
+                'Authorization' => 'Zoho-oauthtoken ' . $this->oAuthClient->getAccessToken()
+            ]
+        ], $params);
+    }
+
+    /**
+     * @param $name
+     * @param $arguments
+     * @return mixed
+     */
+    public function __call($name, $arguments)
+    {
+        return call_user_func_array([$this->oAuthClient, $name], $arguments);
+    }
+
+    /**
      * @param ResponseInterface $response
      *
      * @throws ErrorResponseException
      *
-     * @return array
+     * @return array|string
      */
     protected function processResult(ResponseInterface $response)
     {
+        // Update the API Limit variables if they have been returned.
+        $this->orgRateLimit = (int) $response->getHeaderLine('X-Rate-Limit-Limit', 0);
+        $this->rateLimitRemaining = (int) $response->getHeaderline('X-Rate-Limit-Remaining', 0);
+        $this->rateLimitReset = (int) $response->getHeaderLine('X-Rate-Limit-Reset', 0);
+
         try {
             $result = json_decode($response->getBody(), true);
         } catch (\InvalidArgumentException $e) {
+
+            // All ok, probably not json, like PDF?
+            if ($response->getStatusCode() >= 200 && $response->getStatusCode() <= 299) {
+                return (string) $response->getBody();
+            }
+
+            $result = [
+                'message' => 'Internal API error: ' . $response->getStatusCode() . ' ' . $response->getReasonPhrase(),
+            ];
+        }
+
+        if (!$result) {
+            // All ok, probably not json, like PDF?
+            if ($response->getStatusCode() >= 200 && $response->getStatusCode() <= 299) {
+                return (string) $response->getBody();
+            }
+
             $result = [
                 'message' => 'Internal API error: ' . $response->getStatusCode() . ' ' . $response->getReasonPhrase(),
             ];
@@ -218,36 +360,34 @@ class Client
     }
 
     /**
-     * @param string|null $email
-     * @param string|null $password
+     * Return the rate limits for this org.
      *
-     * @throws AuthException
-     *
-     * @return string
+     * These values are taken from the headers provided by Zoho 
+     * as of BUILD_VERSION "Dec_10_2019_23492". If these values
+     * are not provided, or are invalid, they will be null
      */
-    private function auth($email, $password)
+
+    /**
+     * @return int|null
+     */
+    public function getOrgRateLimit()
     {
-        if (null === $email || null === $password) {
-            throw new AuthException('Please provide authToken OR Email & Password for auto authentication.');
-        }
+        return $this->orgRateLimit;
+    }
 
-        $response = $this->httpClient->post(
-            'https://accounts.zoho.com/apiauthtoken/nb/create',
-            [
-                'form_params' => [
-                    'SCOPE' => 'ZohoBooks/booksapi',
-                    'EMAIL_ID' => $email,
-                    'PASSWORD' => $password,
-                ],
-            ]
-        );
+    /**
+     * @return int|null
+     */
+    public function getRateLimitReset()
+    {
+        return $this->rateLimitReset;
+    }
 
-        $authToken = '';
-
-        if (preg_match('/AUTHTOKEN=(?<token>[a-z0-9]+)/', (string)$response->getBody(), $matches)) {
-            $authToken = @$matches['token'];
-        }
-
-        return $authToken;
+    /**
+     * @return int|null
+     */
+    public function getRateLimitRemaining()
+    {
+        return $this->rateLimitRemaining;
     }
 }

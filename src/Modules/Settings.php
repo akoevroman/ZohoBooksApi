@@ -23,7 +23,7 @@ use Webleit\ZohoBooksApi\Modules\Settings as SettingsModules;
  * @property-read SettingsModules\AutoReminders $autoreminders;
  * @property-read SettingsModules\ManualReminders $manualreminders;
  */
-class Settings
+class Settings implements \Webleit\ZohoBooksApi\Contracts\ProvidesModules
 {
     use ProvidesModules;
 
@@ -36,19 +36,18 @@ class Settings
      * @var array
      */
     protected $availableModules = [
-        'invoices',
-        'preferences',
-        'estimates',
-        'creditnotes',
-        'items',
-        'currencies',
-        'taxes',
-        'taxgroups',
-        'taxauthorities',
-        'taxexemptions',
-        'openingbalances',
-        'autoreminders',
-        'manualreminders'
+        'invoices' => Settings\Invoices::class,
+        'preferences' => Settings\Preferences::class,
+        'estimates' => Settings\Estimates::class,
+        'creditnotes' => Settings\CreditNotes::class,
+        'currencies' => Settings\Currencies::class,
+        'taxes' => Settings\Taxes::class,
+        'taxgroups' => Settings\TaxGroups::class,
+        'taxauthorities' => Settings\TaxAuthorities::class,
+        'taxexemptions' => Settings\TaxExemptions::class,
+        'openingbalances' => Settings\OpeningBalances::class,
+        'autoreminders' => Settings\AutoReminders::class,
+        'manualreminders' => Settings\ManualReminders::class
     ];
 
     /**
